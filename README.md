@@ -4,76 +4,98 @@ A Rust-based MCP (Model Context Protocol) server that provides AI tools with sea
 
 ## What is TraderGrader?
 
-TraderGrader bridges the gap between AI assistants and EVE Online's complex market ecosystem. By implementing the Model Context Protocol, it allows AI tools to query market data, analyze trading opportunities, and provide insights into New Eden's economy.
+TraderGrader bridges the gap between AI assistants and EVE Online's complex
+market ecosystem. By implementing the Model Context Protocol, it allows AI
+tools to query market data, analyze trading opportunities, and provide
+insights into New Eden's economy.
 
-**Model Context Protocol (MCP)** is an open standard that enables AI applications to connect securely with external data sources and tools. TraderGrader implements an MCP server that exposes EVE Online market data as callable tools for AI assistants.
+**Model Context Protocol (MCP)** is an [open standard](https://modelcontextprotocol.io/)
+that enables AI applications to connect securely with external data sources
+and tools. TraderGrader implements an MCP server that exposes EVE Online
+market data as callable tools for AI assistants.
 
 ## Architecture
 
 ### Technology Stack
+
 - **Language**: Rust (2024 edition)
-- **Protocol**: Model Context Protocol (MCP) 
+- **Protocol**: Model Context Protocol (MCP)
 - **API**: EVE Online ESI (EVE Swagger Interface)
 - **Transport**: JSON-RPC over stdio/HTTP
 - **Runtime**: Tokio async
 
 ### Core Components
+
 - **MCP Server**: Handles protocol communication and tool dispatch
 - **ESI Client**: HTTP client for EVE Online's ESI API with rate limiting
 - **Data Models**: Rust structs for market data, orders, and history
-- **Caching Layer**: Response caching to respect API limits  
+- **Caching Layer**: Response caching to respect API limits
 - **Market Analysis**: Tools for finding trading opportunities
 
 ### Key Dependencies
+
 - `tokio` - Async runtime
-- `reqwest` - HTTP client for ESI API  
+- `reqwest` - HTTP client for ESI API
 - `serde` - JSON serialization/deserialization
 - `mcp-rust-sdk` or `rust-mcp` - MCP protocol implementation
 - `chrono` - Date/time handling
-- `redis` or `moka` - Caching (TBD)
+- `redis` - Caching
 
 ## Planned Features
 
 ### MCP Tools
-- **get_market_orders** - Retrieve current buy/sell orders for items in specific regions
+
+- **get_market_orders** - Retrieve current buy/sell orders for items in
+  specific regions
 - **get_market_history** - Access historical price data and trends
-- **get_market_prices** - Compare current prices across multiple regions  
-- **search_market_opportunities** - Identify arbitrage and trading opportunities
+- **get_market_prices** - Compare current prices across multiple regions
+- **search_market_opportunities** - Identify arbitrage and trading
+  opportunities
 - **get_item_info** - Look up item details, names, and type IDs
 
 ### EVE ESI Endpoints
-- `/markets/{region_id}/orders/` - Current market orders
-- `/markets/{region_id}/history/` - Historical market data
-- `/universe/types/{type_id}/` - Item information  
-- `/universe/regions/` - Region data
+
+- [`/markets/{region_id}/orders/`](https://esi.evetech.net/ui/#/Market/get_markets_region_id_orders) -
+  Current market orders
+- [`/markets/{region_id}/history/`](https://esi.evetech.net/ui/#/Market/get_markets_region_id_history) -
+  Historical market data
+- [`/universe/types/{type_id}/`](https://esi.evetech.net/ui/#/Universe/get_universe_types_type_id) -
+  Item information
+- [`/universe/regions/`](https://esi.evetech.net/ui/#/Universe/get_universe_regions) -
+  Region data
 
 ## Development Roadmap
 
 ### Phase 1: Basic MCP Server Setup ⏳
+
 - [x] Project initialization and structure
 - [ ] MCP server with stdio transport
 - [ ] Basic message handling and tool dispatch
 - [ ] Health check tool implementation
 
 ### Phase 2: ESI Integration 📋
-- [ ] ESI HTTP client with proper rate limiting  
+
+- [ ] ESI HTTP client with proper rate limiting
 - [ ] Market data models and JSON deserialization
 - [ ] Basic market order fetching tool
 - [ ] Error handling for API failures
 
 ### Phase 3: Core Market Tools 📋
+
 - [ ] Market history tool implementation
 - [ ] Multi-region price comparison
 - [ ] Response caching system
 - [ ] Rate limit compliance (300 req/min for history endpoint)
 
-### Phase 4: Advanced Features 📋  
+### Phase 4: Advanced Features 📋
+
 - [ ] Market opportunity analysis algorithms
 - [ ] Bulk data operations
 - [ ] Advanced error handling and retry logic
 - [ ] Performance optimizations
 
 ### Phase 5: Production Ready 📋
+
 - [ ] Comprehensive logging and monitoring
 - [ ] Documentation and usage examples
 - [ ] Integration tests
@@ -82,13 +104,17 @@ TraderGrader bridges the gap between AI assistants and EVE Online's complex mark
 ## Technical Considerations
 
 ### Rate Limiting & Caching
-- ESI market history endpoint: 300 requests per IP per minute
-- Cache market data for 5-15 minutes (matches ESI update frequency)
+
+- [ESI market history endpoint](https://esi.evetech.net/ui/#/Market/get_markets_region_id_history):
+  300 requests per IP per minute
+- Cache market data for 5-15 minutes (matches [ESI update frequency](https://docs.esi.evetech.net/docs/esi_introduction.html))
 - Implement exponential backoff for failed requests
 - Graceful handling of ESI downtime
 
 ### Data Strategy
-- Focus on major trade hubs (The Forge, Domain, Heimatar, etc.)
+
+- Focus on major [trade hubs](https://wiki.eveuniversity.org/Trade_hubs)
+  (The Forge, Domain, Heimatar, etc.)
 - Support bulk operations to minimize API calls
 - Handle invalid item/region IDs gracefully
 - Provide meaningful error messages to AI tools
@@ -96,10 +122,12 @@ TraderGrader bridges the gap between AI assistants and EVE Online's complex mark
 ## Getting Started
 
 ### Prerequisites
+
 - Rust 2024 edition or later
 - Internet connection for ESI API access
 
 ### Build and Run
+
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/tradergrader.git
@@ -120,7 +148,9 @@ cargo fmt
 ```
 
 ### Usage with AI Tools
-TraderGrader implements the MCP protocol, allowing it to work with any MCP-compatible AI client:
+
+TraderGrader implements the MCP protocol, allowing it to work with any
+MCP-compatible AI client:
 
 ```bash
 # Run as MCP server (stdio transport)
@@ -134,17 +164,20 @@ cargo run
 **Current Status**: Phase 1 - Project Setup  
 **Last Updated**: June 2025
 
-This project is in active development. The basic Rust structure is in place, and we're currently implementing the core MCP server functionality.
+This project is in active development. The basic Rust structure is in
+place, and we're currently implementing the core MCP server functionality.
 
 ## Contributing
 
 This project welcomes contributions! Whether you're interested in:
+
 - EVE Online market mechanics and trading
-- Rust development and async programming  
+- Rust development and async programming
 - Model Context Protocol implementation
 - API integration and rate limiting strategies
 
 ### Development Guidelines
+
 - Follow Rust idiomatic patterns and conventions
 - Add tests for new functionality
 - Ensure proper error handling for ESI API interactions
@@ -153,10 +186,41 @@ This project welcomes contributions! Whether you're interested in:
 
 ## Resources
 
-- [Model Context Protocol Specification](https://modelcontextprotocol.io/)
-- [EVE Online ESI Documentation](https://esi.evetech.net/ui)
-- [EVE University API Guide](https://wiki.eveuniversity.org/API_access_to_market_data)
-- [Rust MCP SDK](https://github.com/modelcontextprotocol/rust-sdk)
+### Model Context Protocol (MCP)
+- [Official MCP Specification](https://modelcontextprotocol.io/specification/2025-03-26) -
+  Complete protocol specification
+- [MCP Introduction](https://modelcontextprotocol.io/introduction) -
+  Getting started with MCP
+- [Official Rust SDK](https://github.com/modelcontextprotocol/rust-sdk) -
+  Official but early-stage implementation
+- [Community Rust Implementations](https://github.com/punkpeye/awesome-mcp-servers) -
+  Curated list of MCP servers
+
+### EVE Online API & Market Data
+- [ESI Documentation](https://esi.evetech.net/ui) -
+  Interactive EVE Swagger Interface docs
+- [ESI Introduction](https://docs.esi.evetech.net/docs/esi_introduction.html) -
+  Getting started with ESI
+- [Market Data Access Guide](https://wiki.eveuniversity.org/API_access_to_market_data) -
+  EVE University's comprehensive guide
+- [ESI Best Practices](https://developers.eveonline.com/blog/article/esi-best-practices) -
+  Rate limiting and optimization tips
+
+### Rust Development
+- [Rust Project Anatomy](https://cheats.rs/#project-anatomy) -
+  Project structure reference
+- [Tokio Async Runtime](https://tokio.rs/) - Async programming in Rust
+- [Reqwest HTTP Client](https://docs.rs/reqwest/) - Making HTTP requests
+- [Serde JSON Handling](https://serde.rs/) -
+  Serialization and deserialization
+
+### Trading & Market Analysis
+- [EVE Market Data Sources](https://www.fuzzwork.co.uk/tools/) -
+  Third-party market tools
+- [Market Analysis Concepts](https://wiki.eveuniversity.org/Trading) -
+  EVE University trading guide
+- [Regional Trade Hubs](https://wiki.eveuniversity.org/Trade_hubs) -
+  Major trading locations in New Eden
 
 ## License
 
@@ -164,4 +228,4 @@ This project welcomes contributions! Whether you're interested in:
 
 ---
 
-*Fly safe, trade smart.* 🚀
+_Fly safe, trade smart._ 🚀
