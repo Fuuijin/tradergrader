@@ -1,0 +1,7 @@
+[package]
+name = "tradergrader"
+description = "mcp server for interacting with eveonline market data"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
