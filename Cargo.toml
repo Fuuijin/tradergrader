@@ -1,5 +1,6 @@
 [package]
 name = "tradergrader"
+authors = ["Mattias Ross", "mattias.ross@protonmail.com"]
 description = "mcp server for interacting with eveonline market data"
 version = "0.1.0"
 edition = "2024"

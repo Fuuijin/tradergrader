@@ -1,3 +1,5 @@
+use tradergrader::TraderGraderApplication;
+
 fn main() {
-    println!("Hello, world!");
+    TraderGraderApplication.run();
 }
