@@ -35,8 +35,7 @@ impl TraderGraderApplication {
 
     /// Run the MCP server main loop
     pub async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("🚀 TraderGrader MCP Server starting...");
-        println!("Ready to receive MCP JSON-RPC messages on stdin");
+        // Silent startup for MCP protocol compliance
 
         // Simple MCP server loop - reads JSON-RPC from stdin, responds on stdout
         let stdin = io::stdin();
