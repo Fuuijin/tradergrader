@@ -1,6 +1,6 @@
 #!/bin/bash
 # TraderGrader MCP Server - One-liner installer
-# Usage: curl -sSL https://raw.githubusercontent.com/your-username/tradergrader/main/install.sh | bash
+# Usage: curl -sSL https://raw.githubusercontent.com/fuuijin/tradergrader/main/install.sh | bash
 
 set -e
 
@@ -45,10 +45,10 @@ while [[ $# -gt 0 ]]; do
 		echo ""
 		echo "Examples:"
 		echo "  # Install to default location"
-		echo "  curl -sSL https://raw.githubusercontent.com/your-username/tradergrader/main/install.sh | bash"
+		echo "  curl -sSL https://raw.githubusercontent.com/fuuijin/tradergrader/main/install.sh | bash"
 		echo ""
 		echo "  # Install to custom directory"
-		echo "  curl -sSL https://raw.githubusercontent.com/your-username/tradergrader/main/install.sh | bash -s -- --dir /opt/tradergrader"
+		echo "  curl -sSL https://raw.githubusercontent.com/fuuijin/tradergrader/main/install.sh | bash -s -- --dir /opt/tradergrader"
 		exit 0
 		;;
 	*)

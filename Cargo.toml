@@ -3,13 +3,18 @@ name = "tradergrader"
 authors = ["Mattias Ross", "mattias.ross@protonmail.com"]
 description = "mcp server for interacting with eveonline market data"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
-chrono = "0.4.41"
-redis = "0.32.1"
-reqwest = { version = "0.12.20", features = ["json"] }
-# rust_mcp = { git = "https://github.com/Martian-Engineering/rust-mcp.git" }
-serde = { version = "1.0.219", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+redis = { version = "0.32", optional = true }
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.45.1", features = ["full"] }
+tokio = { version = "1.45", features = ["full"] }
+anyhow = "1.0"
+thiserror = "1.0"
+
+[features]
+default = ["redis-cache"]
+redis-cache = ["dep:redis"]

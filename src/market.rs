@@ -1,4 +1,5 @@
-use crate::types::{MarketOrder, MarketHistory, PriceAnalysis};
+use crate::error::Result;
+use crate::types::{MarketHistory, MarketOrder, PriceAnalysis};
 use reqwest::Client;
 
 /// Market data client for EVE Online ESI API
@@ -12,17 +13,19 @@ impl MarketClient {
     pub fn new() -> Self {
         Self {
             http_client: Client::builder()
-                .user_agent("TraderGrader/0.1.0 (https://github.com/your-username/tradergrader)")
+                .user_agent("TraderGrader/0.1.0 (https://github.com/fuuijin/tradergrader)")
                 .build()
                 .expect("Failed to create HTTP client"),
         }
     }
 
     /// Fetch current market orders for a region and optional item type
-    pub async fn fetch_market_orders(&self, region_id: i32, type_id: Option<i32>) -> Result<Vec<MarketOrder>, Box<dyn std::error::Error>> {
-        let mut url = format!(
-            "https://esi.evetech.net/latest/markets/{region_id}/orders/"
-        );
+    pub async fn fetch_market_orders(
+        &self,
+        region_id: i32,
+        type_id: Option<i32>,
+    ) -> Result<Vec<MarketOrder>> {
+        let mut url = format!("https://esi.evetech.net/latest/markets/{region_id}/orders/");
 
         if let Some(tid) = type_id {
             url = format!("{url}?type_id={tid}");
@@ -41,16 +44,21 @@ impl MarketClient {
     }
 
     /// Fetch historical market data for a specific item in a region
-    pub async fn fetch_market_history(&self, region_id: i32, type_id: i32) -> Result<Vec<MarketHistory>, Box<dyn std::error::Error>> {
-        let url = format!("https://esi.evetech.net/latest/markets/{region_id}/history/?type_id={type_id}");
+    pub async fn fetch_market_history(
+        &self,
+        region_id: i32,
+        type_id: i32,
+    ) -> Result<Vec<MarketHistory>> {
+        let url = format!(
+            "https://esi.evetech.net/latest/markets/{region_id}/history/?type_id={type_id}"
+        );
 
-        let response = self.http_client
-            .get(&url)
-            .send()
-            .await?;
+        let response = self.http_client.get(&url).send().await?;
 
         if !response.status().is_success() {
-            return Err(format!("ESI API request failed with status: {}", response.status()).into());
+            return Err(
+                format!("ESI API request failed with status: {}", response.status()).into(),
+            );
         }
 
         let history: Vec<MarketHistory> = response.json().await?;
@@ -58,7 +66,7 @@ impl MarketClient {
     }
 
     /// Generate a market summary with buy/sell analysis
-    pub async fn get_market_summary(&self, region_id: i32, type_id: i32) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn get_market_summary(&self, region_id: i32, type_id: i32) -> Result<String> {
         let orders = self.fetch_market_orders(region_id, Some(type_id)).await?;
 
         let buy_orders: Vec<&MarketOrder> = orders.iter().filter(|o| o.is_buy_order).collect();
@@ -97,9 +105,13 @@ impl MarketClient {
     }
 
     /// Analyze price trends from historical data
-    pub async fn analyze_price_trends(&self, region_id: i32, type_id: i32) -> Result<PriceAnalysis, Box<dyn std::error::Error>> {
+    pub async fn analyze_price_trends(
+        &self,
+        region_id: i32,
+        type_id: i32,
+    ) -> Result<PriceAnalysis> {
         let history = self.fetch_market_history(region_id, type_id).await?;
-        
+
         if history.is_empty() {
             return Err("No historical data available".into());
         }
@@ -109,30 +121,35 @@ impl MarketClient {
         sorted_history.sort_by(|a, b| b.date.cmp(&a.date));
 
         let current_price = sorted_history[0].average;
-        
+
         // Calculate changes (day, week, month)
         let day_change = if sorted_history.len() > 1 {
             current_price - sorted_history[1].average
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         let week_change = if sorted_history.len() > 7 {
             current_price - sorted_history[7].average
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         let month_change = if sorted_history.len() > 30 {
             current_price - sorted_history[30].average
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         // Calculate volatility (standard deviation of last 30 days)
-        let recent_prices: Vec<f64> = sorted_history.iter()
-            .take(30)
-            .map(|h| h.average)
-            .collect();
-        
+        let recent_prices: Vec<f64> = sorted_history.iter().take(30).map(|h| h.average).collect();
+
         let mean_price = recent_prices.iter().sum::<f64>() / recent_prices.len() as f64;
-        let variance = recent_prices.iter()
+        let variance = recent_prices
+            .iter()
             .map(|price| (price - mean_price).powi(2))
-            .sum::<f64>() / recent_prices.len() as f64;
+            .sum::<f64>()
+            / recent_prices.len() as f64;
         let volatility = variance.sqrt();
 
         // Determine trend
@@ -151,20 +168,32 @@ impl MarketClient {
         Ok(PriceAnalysis {
             current_price,
             day_change,
-            day_change_percent: if sorted_history.len() > 1 { (day_change / sorted_history[1].average) * 100.0 } else { 0.0 },
+            day_change_percent: if sorted_history.len() > 1 {
+                (day_change / sorted_history[1].average) * 100.0
+            } else {
+                0.0
+            },
             week_change,
-            week_change_percent: if sorted_history.len() > 7 { (week_change / sorted_history[7].average) * 100.0 } else { 0.0 },
+            week_change_percent: if sorted_history.len() > 7 {
+                (week_change / sorted_history[7].average) * 100.0
+            } else {
+                0.0
+            },
             month_change,
-            month_change_percent: if sorted_history.len() > 30 { (month_change / sorted_history[30].average) * 100.0 } else { 0.0 },
+            month_change_percent: if sorted_history.len() > 30 {
+                (month_change / sorted_history[30].average) * 100.0
+            } else {
+                0.0
+            },
             volatility,
             trend,
         })
     }
 
     /// Get a formatted price history summary
-    pub async fn get_price_history_summary(&self, region_id: i32, type_id: i32) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn get_price_history_summary(&self, region_id: i32, type_id: i32) -> Result<String> {
         let analysis = self.analyze_price_trends(region_id, type_id).await?;
-        
+
         let summary = format!(
             "Price Analysis for Type {} in Region {}:\n\
             Current Price: {:.2} ISK\n\
@@ -188,7 +217,7 @@ impl MarketClient {
             analysis.volatility,
             analysis.trend
         );
-        
+
         Ok(summary)
     }
 }
@@ -198,3 +227,4 @@ impl Default for MarketClient {
         Self::new()
     }
 }
+

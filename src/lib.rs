@@ -2,19 +2,31 @@
 //! 
 //! A production-ready MCP server that provides AI tools with comprehensive access
 //! to EVE Online market data, historical trends, and trading analysis.
+//!
+//! # Features
+//! 
+//! - Real-time EVE Online market data via ESI API
+//! - Historical price analysis and trend detection
+//! - Market opportunity identification
+//! - Caching for optimal performance
+//! - Full MCP (Model Context Protocol) compliance
 
 use serde_json::Value;
 use std::io::{self, BufRead, Write};
 
 // Module declarations
+pub mod error;
 pub mod types;
 pub mod market;
 pub mod mcp;
+pub mod server;
 
 // Re-export commonly used types
+pub use error::{TraderGraderError, Result};
 pub use types::{MarketOrder, MarketHistory, MarketType, PriceAnalysis};
 pub use market::MarketClient;
 pub use mcp::McpHandler;
+pub use server::StandaloneMcpServer;
 
 /// Main TraderGrader application
 #[derive(Debug)]
@@ -34,7 +46,7 @@ impl TraderGraderApplication {
     }
 
     /// Run the MCP server main loop
-    pub async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(&self) -> anyhow::Result<()> {
         // Silent startup for MCP protocol compliance
 
         // Simple MCP server loop - reads JSON-RPC from stdin, responds on stdout
@@ -51,9 +63,13 @@ impl TraderGraderApplication {
             match serde_json::from_str::<Value>(&line) {
                 Ok(message) => {
                     let response = self.mcp_handler.handle_message(message).await;
-                    let response_str = serde_json::to_string(&response)?;
-                    writeln!(stdout, "{response_str}")?;
-                    stdout.flush()?;
+                    
+                    // Only send response if it's not null (notifications return null)
+                    if !response.is_null() {
+                        let response_str = serde_json::to_string(&response)?;
+                        writeln!(stdout, "{response_str}")?;
+                        stdout.flush()?;
+                    }
                 }
                 Err(e) => {
                     eprintln!("Failed to parse message: {e}");
@@ -70,27 +86,27 @@ impl TraderGraderApplication {
     }
 
     /// Convenience method for fetching market orders
-    pub async fn fetch_market_orders(&self, region_id: i32, type_id: Option<i32>) -> Result<Vec<MarketOrder>, Box<dyn std::error::Error>> {
+    pub async fn fetch_market_orders(&self, region_id: i32, type_id: Option<i32>) -> Result<Vec<MarketOrder>> {
         self.market_client().fetch_market_orders(region_id, type_id).await
     }
 
     /// Convenience method for getting market summary
-    pub async fn get_market_summary(&self, region_id: i32, type_id: i32) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn get_market_summary(&self, region_id: i32, type_id: i32) -> Result<String> {
         self.market_client().get_market_summary(region_id, type_id).await
     }
 
     /// Convenience method for fetching market history
-    pub async fn fetch_market_history(&self, region_id: i32, type_id: i32) -> Result<Vec<MarketHistory>, Box<dyn std::error::Error>> {
+    pub async fn fetch_market_history(&self, region_id: i32, type_id: i32) -> Result<Vec<MarketHistory>> {
         self.market_client().fetch_market_history(region_id, type_id).await
     }
 
     /// Convenience method for price trend analysis
-    pub async fn analyze_price_trends(&self, region_id: i32, type_id: i32) -> Result<PriceAnalysis, Box<dyn std::error::Error>> {
+    pub async fn analyze_price_trends(&self, region_id: i32, type_id: i32) -> Result<PriceAnalysis> {
         self.market_client().analyze_price_trends(region_id, type_id).await
     }
 
     /// Convenience method for price history summary
-    pub async fn get_price_history_summary(&self, region_id: i32, type_id: i32) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn get_price_history_summary(&self, region_id: i32, type_id: i32) -> Result<String> {
         self.market_client().get_price_history_summary(region_id, type_id).await
     }
 }

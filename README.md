@@ -1,10 +1,12 @@
 # TraderGrader
 
-A production-ready Rust-based MCP (Model Context Protocol) server that provides AI tools with comprehensive access to EVE Online market data, historical trends, and trading analysis through the ESI API.
+A **production-ready** Rust-based MCP (Model Context Protocol) server that provides AI tools with comprehensive access to EVE Online market data, historical trends, and trading analysis through the ESI API. **Fully compatible with Claude Code and Claude Desktop.**
 
 ## 🎯 What is TraderGrader?
 
 TraderGrader bridges the gap between AI assistants and EVE Online's complex market ecosystem. By implementing the Model Context Protocol, it allows AI tools to query real-time market data, analyze historical price trends, identify trading opportunities, and provide insights into New Eden's economy.
+
+🎉 **Now fully working with Claude Code!** The MCP server has been tested and verified to work seamlessly with both Claude Code CLI and Claude Desktop applications.
 
 **Model Context Protocol (MCP)** is an [open standard](https://modelcontextprotocol.io/) that enables AI applications to connect securely with external data sources and tools. TraderGrader implements a production-grade MCP server that exposes EVE Online market data as callable tools for AI assistants.
 
@@ -13,7 +15,7 @@ TraderGrader bridges the gap between AI assistants and EVE Online's complex mark
 ### One-Liner Installation
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/your-username/tradergrader/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/fuuijin/tradergrader/main/install.sh | bash
 ```
 
 This automatically:
@@ -25,7 +27,7 @@ This automatically:
 ### Manual Installation
 
 ```bash
-git clone https://github.com/your-username/tradergrader.git
+git clone https://github.com/fuuijin/tradergrader.git
 cd tradergrader
 cargo build --release
 ./install_mcp.sh  # Configure for Claude Desktop

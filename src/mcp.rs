@@ -1,4 +1,5 @@
 use crate::market::MarketClient;
+use crate::error::TraderGraderError;
 use serde_json::{Value, json};
 
 /// MCP protocol handler for TraderGrader
@@ -24,9 +25,13 @@ impl McpHandler {
         // Basic MCP message handling
         if let Some(method) = message.get("method").and_then(|m| m.as_str()) {
             match method {
-                "initialize" => self.handle_initialize(),
-                "tools/list" => self.handle_tools_list(),
+                "initialize" => self.handle_initialize(&message),
+                "initialized" => self.handle_initialized(),
+                "notifications/initialized" => self.handle_initialized(),
+                "notifications/cancelled" => self.handle_cancelled(&message),
+                "tools/list" => self.handle_tools_list(&message),
                 "tools/call" => self.handle_tool_call(&message).await,
+                "ping" => self.handle_ping(&message),
                 _ => json!({
                     "jsonrpc": "2.0",
                     "id": message.get("id"),
@@ -49,28 +54,46 @@ impl McpHandler {
     }
 
     /// Handle MCP initialize request
-    fn handle_initialize(&self) -> Value {
+    fn handle_initialize(&self, message: &Value) -> Value {
         json!({
             "jsonrpc": "2.0",
-            "id": 1,
+            "id": message.get("id"),
             "result": {
-                "protocolVersion": "2024-11-05",
+                "protocolVersion": "2025-03-26",
                 "capabilities": {
-                    "tools": {}
+                    "tools": {
+                        "listChanged": false
+                    }
                 },
                 "serverInfo": {
                     "name": self.server_name,
-                    "version": self.server_version
+                    "version": self.server_version,
+                    "instructions": "EVE Online market data MCP server providing real-time trading analysis and historical price data through ESI API integration."
                 }
             }
         })
     }
 
-    /// Handle tools/list request - return available tools
-    fn handle_tools_list(&self) -> Value {
+    /// Handle initialized notification (no response required)
+    fn handle_initialized(&self) -> Value {
+        // Notifications don't require responses, but we return empty for consistency
+        json!(null)
+    }
+
+    /// Handle ping request for connection testing
+    fn handle_ping(&self, message: &Value) -> Value {
         json!({
             "jsonrpc": "2.0",
-            "id": 2,
+            "id": message.get("id"),
+            "result": {}
+        })
+    }
+
+    /// Handle tools/list request - return available tools
+    fn handle_tools_list(&self, message: &Value) -> Value {
+        json!({
+            "jsonrpc": "2.0",
+            "id": message.get("id"),
             "result": {
                 "tools": [
                     {
@@ -409,4 +432,11 @@ impl McpHandler {
             })
         }
     }
+
+    /// Handle cancellation notifications
+    fn handle_cancelled(&self, _message: &Value) -> Value {
+        // Notifications don't require responses
+        json!(null)
+    }
+
 }
