@@ -1,14 +1,16 @@
 # TraderGrader
 
-A **production-ready** Rust-based MCP (Model Context Protocol) server that provides AI tools with comprehensive access to EVE Online market data, historical trends, and trading analysis through the ESI API. **Fully compatible with Claude Code and Claude Desktop.**
+⚠️ **WORK IN PROGRESS - USE WITH CAUTION** ⚠️
+
+This is an **experimental** Rust-based MCP (Model Context Protocol) server that provides AI tools with access to EVE Online market data, historical trends, and trading analysis through the ESI API. While functional with Claude Code and Claude Desktop, this project is still in active development and should be used with care, if at all.
 
 ## 🎯 What is TraderGrader?
 
 TraderGrader bridges the gap between AI assistants and EVE Online's complex market ecosystem. By implementing the Model Context Protocol, it allows AI tools to query real-time market data, analyze historical price trends, identify trading opportunities, and provide insights into New Eden's economy.
 
-🎉 **Now fully working with Claude Code!** The MCP server has been tested and verified to work seamlessly with both Claude Code CLI and Claude Desktop applications.
+✅ **Basic functionality working with Claude Code** - The MCP server connects and responds to basic queries, but comprehensive testing is ongoing.
 
-**Model Context Protocol (MCP)** is an [open standard](https://modelcontextprotocol.io/) that enables AI applications to connect securely with external data sources and tools. TraderGrader implements a production-grade MCP server that exposes EVE Online market data as callable tools for AI assistants.
+**Model Context Protocol (MCP)** is an [open standard](https://modelcontextprotocol.io/) that enables AI applications to connect securely with external data sources and tools. TraderGrader implements an experimental MCP server that exposes EVE Online market data as callable tools for AI assistants.
 
 ## ⚡ Quick Start
 
@@ -277,4 +279,4 @@ Contributions welcome! Areas of interest:
 
 _Fly safe, trade smart, profit wisely._ 🚀
 
-**Status**: Production Ready v0.1.0 | **Last Updated**: June 2025
+**Status**: Experimental v0.1.0 - Use with Caution | **Last Updated**: June 2025
