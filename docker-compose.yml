@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  tradergrader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tradergrader:latest
+    container_name: tradergrader-mcp
+    restart: unless-stopped
+    stdin_open: true  # Keep STDIN open for MCP communication
+    tty: true         # Allocate a pseudo-TTY
+    environment:
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+    # Uncomment if you want to use Redis caching
+    # depends_on:
+    #   - redis
+    # networks:
+    #   - tradergrader-net
+    
+  # Optional Redis service for future caching implementation
+  redis:
+    image: redis:7-alpine
+    container_name: tradergrader-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    profiles:
+      - with-redis  # Use: docker-compose --profile with-redis up
+    networks:
+      - tradergrader-net
+
+  # Development service with volume mounts
+  tradergrader-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder  # Stop at builder stage for development
+    image: tradergrader:dev
+    container_name: tradergrader-dev
+    working_dir: /app
+    volumes:
+      - .:/app
+      - cargo_cache:/usr/local/cargo/registry
+    environment:
+      - RUST_LOG=debug
+      - RUST_BACKTRACE=full
+    stdin_open: true
+    tty: true
+    profiles:
+      - dev  # Use: docker-compose --profile dev up
+    command: cargo run
+
+networks:
+  tradergrader-net:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
+  cargo_cache:
+    driver: local

@@ -17,6 +17,12 @@ This directory contains all shell scripts and utilities for TraderGrader develop
 - **`test_jita_orders.sh`** - Jita order book testing
 - **`test_mcp.py`** - Python-based MCP protocol testing
 
+## Docker Scripts
+
+- **`docker-build.sh`** - Build Docker images (production & development)
+- **`docker-run.sh`** - Run TraderGrader in Docker containers
+- **`docker-test.sh`** - Comprehensive Docker functionality testing
+
 ## Usage
 
 All scripts are executable and can be run from the project root:
@@ -24,6 +30,11 @@ All scripts are executable and can be run from the project root:
 ```bash
 # Install TraderGrader
 ./scripts/install.sh
+
+# Docker operations
+./scripts/docker-build.sh
+./scripts/docker-run.sh --interactive
+./scripts/docker-test.sh
 
 # Run market tests
 ./scripts/test_jita_orders.sh

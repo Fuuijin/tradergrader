@@ -35,6 +35,47 @@ cargo build --release
 ./scripts/install_mcp.sh  # Configure for Claude Desktop
 ```
 
+### 🐳 Docker Installation
+
+**Quick Docker Start:**
+```bash
+# Build and run with Docker
+git clone https://github.com/fuuijin/tradergrader.git
+cd tradergrader
+./scripts/docker-build.sh
+./scripts/docker-run.sh --interactive
+```
+
+**Using docker-compose:**
+```bash
+# Production setup
+docker-compose up
+
+# Development with Redis
+docker-compose --profile with-redis up
+
+# Development mode with hot reload
+docker-compose --profile dev up
+```
+
+**Docker Commands:**
+```bash
+# Build optimized production image
+./scripts/docker-build.sh
+
+# Build development image (with Rust toolchain)
+./scripts/docker-build.sh --dev
+
+# Run interactively
+./scripts/docker-run.sh --interactive
+
+# Run health check
+./scripts/docker-run.sh --health
+
+# Test Docker setup
+./scripts/docker-test.sh
+```
+
 ## 🛠️ Available Tools
 
 TraderGrader provides 5 MCP tools for comprehensive market analysis:

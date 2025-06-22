@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Docker Support)
+- **Comprehensive Docker Support** - Multi-stage Dockerfile with optimized 88.4MB production builds
+- **ENTRYPOINT Architecture** - Clean CLI argument handling (`docker run tradergrader --health`)
+- **docker-compose.yml** - Production, development, and Redis integration profiles
+- **Docker Scripts** - Automated build, run, and testing utilities
+- **Health Checks** - Proper container health monitoring and lifecycle management
+- **Security** - Non-root user configuration and minimal attack surface
+- **Development Mode** - Docker setup with Rust toolchain for development workflows
+
 ## [0.1.0] - 2025-06-22
 
 ### Added
