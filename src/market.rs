@@ -1,6 +1,9 @@
+use crate::cache::{CacheBackend, CacheBackendExt, CacheConfig, CacheKey, EsiHeaderParser};
 use crate::error::Result;
+use crate::rate_limit::{EsiRateLimiter, RateLimitConfig};
 use crate::types::{MarketHistory, MarketOrder, PriceAnalysis};
 use reqwest::Client;
+use std::sync::Arc;
 
 /// Market data client for EVE Online ESI API
 /// 
@@ -9,6 +12,8 @@ use reqwest::Client;
 #[derive(Debug)]
 pub struct MarketClient {
     http_client: Client,
+    cache: Option<Arc<dyn CacheBackend>>,
+    rate_limiter: EsiRateLimiter,
 }
 
 impl MarketClient {
@@ -23,12 +28,94 @@ impl MarketClient {
     /// let client = MarketClient::new();
     /// ```
     pub fn new() -> Self {
+        Self::with_configs(CacheConfig::default(), RateLimitConfig::default())
+            .expect("Failed to create MarketClient with default configs")
+    }
+
+    /// Creates a new MarketClient with cache configuration
+    pub fn with_cache_config(config: CacheConfig) -> Result<Self> {
+        Self::with_configs(config, RateLimitConfig::default())
+    }
+
+    /// Creates a new MarketClient with both cache and rate limit configuration
+    /// 
+    /// Provides full control over both caching and rate limiting behavior.
+    /// Use this for production deployments where you need specific configurations.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `cache_config` - Configuration for cache backend (enabled/disabled, capacity, TTL)
+    /// * `rate_limit_config` - Configuration for ESI rate limiting (requests/sec, retries, backoff)
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use tradergrader::{MarketClient, CacheConfig, RateLimitConfig};
+    /// use std::time::Duration;
+    /// 
+    /// let cache_config = CacheConfig::in_memory(1000, Duration::from_secs(3600));
+    /// let rate_config = RateLimitConfig::conservative();
+    /// let client = MarketClient::with_configs(cache_config, rate_config)?;
+    /// # Ok::<(), tradergrader::TraderGraderError>(())
+    /// ```
+    pub fn with_configs(cache_config: CacheConfig, rate_limit_config: RateLimitConfig) -> Result<Self> {
+        let cache = cache_config.create_backend()?;
+        let rate_limiter = EsiRateLimiter::new(rate_limit_config)?;
+        
+        Ok(Self {
+            http_client: Client::builder()
+                .user_agent("TraderGrader/0.1.0 (https://github.com/fuuijin/tradergrader)")
+                .build()
+                .expect("Failed to create HTTP client"),
+            cache,
+            rate_limiter,
+        })
+    }
+
+    /// Creates a new MarketClient with custom cache backend
+    /// 
+    /// Use this when you want to provide your own cache implementation
+    /// or share a cache instance between multiple clients.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `cache` - Arc-wrapped cache backend implementing CacheBackend trait
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use std::sync::Arc;
+    /// use tradergrader::{MarketClient, InMemoryCacheBackend};
+    /// 
+    /// let cache = Arc::new(InMemoryCacheBackend::default());
+    /// let client = MarketClient::with_cache(cache);
+    /// ```
+    pub fn with_cache(cache: Arc<dyn CacheBackend>) -> Self {
         Self {
             http_client: Client::builder()
                 .user_agent("TraderGrader/0.1.0 (https://github.com/fuuijin/tradergrader)")
                 .build()
                 .expect("Failed to create HTTP client"),
+            cache: Some(cache),
+            rate_limiter: EsiRateLimiter::default().expect("Failed to create rate limiter"),
         }
+    }
+
+    /// Creates a new MarketClient without caching
+    pub fn without_cache() -> Self {
+        Self {
+            http_client: Client::builder()
+                .user_agent("TraderGrader/0.1.0 (https://github.com/fuuijin/tradergrader)")
+                .build()
+                .expect("Failed to create HTTP client"),
+            cache: None,
+            rate_limiter: EsiRateLimiter::default().expect("Failed to create rate limiter"),
+        }
+    }
+
+    /// Check if caching is enabled for this client
+    pub fn has_cache(&self) -> bool {
+        self.cache.is_some()
     }
 
     /// Fetches current market orders for a specific region and optional item type
@@ -60,13 +147,25 @@ impl MarketClient {
         region_id: i32,
         type_id: Option<i32>,
     ) -> Result<Vec<MarketOrder>> {
+        let cache_key = CacheKey::market_orders(region_id, type_id);
+
+        // Try to get from cache first
+        if let Some(cache) = &self.cache {
+            if let Some(cached_item) = cache.get::<Vec<MarketOrder>>(&cache_key).await? {
+                return Ok(cached_item.data);
+            }
+        }
+
+        // Not in cache, fetch from ESI with rate limiting
         let mut url = format!("https://esi.evetech.net/latest/markets/{region_id}/orders/");
 
         if let Some(tid) = type_id {
             url = format!("{url}?type_id={tid}");
         }
 
-        let response = self.http_client.get(&url).send().await?;
+        let response = self.rate_limiter.execute_with_retry(|| async {
+            Ok(self.http_client.get(&url).send().await?)
+        }).await?;
 
         if !response.status().is_success() {
             return Err(
@@ -74,7 +173,20 @@ impl MarketClient {
             );
         }
 
+        // Extract headers before consuming response
+        let headers = response.headers().clone();
         let orders: Vec<MarketOrder> = response.json().await?;
+
+        // Cache the result using ESI headers
+        if let Some(cache) = &self.cache {
+            let cache_item = EsiHeaderParser::create_cache_item_from_response(
+                orders.clone(),
+                &headers,
+                "orders",
+            );
+            let _ = cache.set(&cache_key, cache_item).await; // Ignore cache errors
+        }
+
         Ok(orders)
     }
 
@@ -107,11 +219,23 @@ impl MarketClient {
         region_id: i32,
         type_id: i32,
     ) -> Result<Vec<MarketHistory>> {
+        let cache_key = CacheKey::market_history(region_id, type_id);
+
+        // Try to get from cache first
+        if let Some(cache) = &self.cache {
+            if let Some(cached_item) = cache.get::<Vec<MarketHistory>>(&cache_key).await? {
+                return Ok(cached_item.data);
+            }
+        }
+
+        // Not in cache, fetch from ESI with rate limiting
         let url = format!(
             "https://esi.evetech.net/latest/markets/{region_id}/history/?type_id={type_id}"
         );
 
-        let response = self.http_client.get(&url).send().await?;
+        let response = self.rate_limiter.execute_with_retry(|| async {
+            Ok(self.http_client.get(&url).send().await?)
+        }).await?;
 
         if !response.status().is_success() {
             return Err(
@@ -119,7 +243,20 @@ impl MarketClient {
             );
         }
 
+        // Extract headers before consuming response
+        let headers = response.headers().clone();
         let history: Vec<MarketHistory> = response.json().await?;
+
+        // Cache the result using ESI headers
+        if let Some(cache) = &self.cache {
+            let cache_item = EsiHeaderParser::create_cache_item_from_response(
+                history.clone(),
+                &headers,
+                "history",
+            );
+            let _ = cache.set(&cache_key, cache_item).await; // Ignore cache errors
+        }
+
         Ok(history)
     }
 
@@ -149,6 +286,16 @@ impl MarketClient {
     /// # }
     /// ```
     pub async fn get_market_summary(&self, region_id: i32, type_id: i32) -> Result<String> {
+        let cache_key = CacheKey::market_summary(region_id, type_id);
+
+        // Try to get from cache first
+        if let Some(cache) = &self.cache {
+            if let Some(cached_item) = cache.get::<String>(&cache_key).await? {
+                return Ok(cached_item.data);
+            }
+        }
+
+        // Not in cache, compute summary
         let orders = self.fetch_market_orders(region_id, Some(type_id)).await?;
 
         let buy_orders: Vec<&MarketOrder> = orders.iter().filter(|o| o.is_buy_order).collect();
@@ -183,6 +330,14 @@ impl MarketClient {
             }
         );
 
+        // Cache the summary using recommended TTL for summary data
+        if let Some(cache) = &self.cache {
+            use crate::cache::CacheItem;
+            let ttl = EsiHeaderParser::recommended_ttl_for_data_type("summary");
+            let cache_item = CacheItem::new(summary.clone(), ttl);
+            let _ = cache.set(&cache_key, cache_item).await; // Ignore cache errors
+        }
+
         Ok(summary)
     }
 
@@ -216,6 +371,16 @@ impl MarketClient {
         region_id: i32,
         type_id: i32,
     ) -> Result<PriceAnalysis> {
+        let cache_key = CacheKey::price_analysis(region_id, type_id);
+
+        // Try to get from cache first
+        if let Some(cache) = &self.cache {
+            if let Some(cached_item) = cache.get::<PriceAnalysis>(&cache_key).await? {
+                return Ok(cached_item.data);
+            }
+        }
+
+        // Not in cache, compute analysis
         let history = self.fetch_market_history(region_id, type_id).await?;
 
         if history.is_empty() {
@@ -271,7 +436,7 @@ impl MarketClient {
             "Stable".to_string()
         };
 
-        Ok(PriceAnalysis {
+        let analysis = PriceAnalysis {
             current_price,
             day_change,
             day_change_percent: if sorted_history.len() > 1 {
@@ -293,7 +458,17 @@ impl MarketClient {
             },
             volatility,
             trend,
-        })
+        };
+
+        // Cache the analysis using recommended TTL for analysis data
+        if let Some(cache) = &self.cache {
+            use crate::cache::CacheItem;
+            let ttl = EsiHeaderParser::recommended_ttl_for_data_type("analysis");
+            let cache_item = CacheItem::new(analysis.clone(), ttl);
+            let _ = cache.set(&cache_key, cache_item).await; // Ignore cache errors
+        }
+
+        Ok(analysis)
     }
 
     /// Generates a formatted price history summary with trend analysis
@@ -444,6 +619,52 @@ mod tests {
         
         assert!(volatility > 0.0);
         assert!(mean > 90.0 && mean < 110.0);
+    }
+
+    #[test]
+    fn test_market_client_cache_configurations() {
+        use crate::cache::CacheConfig;
+        use std::time::Duration;
+
+        // Test default configuration
+        let client = MarketClient::new();
+        assert!(client.has_cache());
+
+        // Test disabled cache
+        let client_no_cache = MarketClient::with_cache_config(CacheConfig::disabled())
+            .expect("Should create client without cache");
+        assert!(!client_no_cache.has_cache());
+
+        // Test custom in-memory cache
+        let client_custom = MarketClient::with_cache_config(
+            CacheConfig::in_memory(500, Duration::from_secs(1800))
+        ).expect("Should create client with custom cache");
+        assert!(client_custom.has_cache());
+
+        // Test without_cache method
+        let client_without = MarketClient::without_cache();
+        assert!(!client_without.has_cache());
+    }
+
+    #[test]
+    fn test_market_client_rate_limit_configurations() {
+        use crate::cache::CacheConfig;
+        use crate::rate_limit::RateLimitConfig;
+
+        // Test with both custom cache and rate limit configs
+        let cache_config = CacheConfig::in_memory(100, std::time::Duration::from_secs(600));
+        let rate_limit_config = RateLimitConfig::conservative();
+        
+        let client = MarketClient::with_configs(cache_config, rate_limit_config)
+            .expect("Should create client with custom configs");
+        
+        assert!(client.has_cache());
+        assert_eq!(client.rate_limiter.config().requests_per_second, 50); // Conservative setting
+        
+        // Test default configurations
+        let default_client = MarketClient::new();
+        assert!(default_client.has_cache());
+        assert_eq!(default_client.rate_limiter.config().requests_per_second, 100); // Default ESI limit
     }
 }
 
