@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 /// 
 /// Contains all information about a buy or sell order in EVE Online's market system,
 /// including price, volume, location, and timing details.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MarketOrder {
     pub duration: i32,
     pub is_buy_order: bool,
@@ -35,7 +35,7 @@ pub struct MarketType {
 /// 
 /// Contains daily aggregated market statistics including price ranges,
 /// average price, total volume traded, and number of orders.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MarketHistory {
     pub average: f64,
     pub date: String,
@@ -49,7 +49,7 @@ pub struct MarketHistory {
 /// 
 /// Contains calculated metrics for price movement analysis including
 /// short-term and long-term changes, volatility measures, and trend direction.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PriceAnalysis {
     pub current_price: f64,
     pub day_change: f64,

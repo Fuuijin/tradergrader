@@ -20,6 +20,7 @@ pub mod types;
 pub mod market;
 pub mod mcp;
 pub mod server;
+pub mod cache;
 
 // Re-export commonly used types
 pub use error::{TraderGraderError, Result};
@@ -27,6 +28,7 @@ pub use types::{MarketOrder, MarketHistory, MarketType, PriceAnalysis};
 pub use market::MarketClient;
 pub use mcp::McpHandler;
 pub use server::StandaloneMcpServer;
+pub use cache::{CacheKey, CacheItem, CacheBackend, CacheBackendExt, CacheConfig, CacheBackendType, CacheStats, EsiHeaderParser, InMemoryCacheBackend};
 
 /// Main TraderGrader application
 #[derive(Debug)]
