@@ -17,7 +17,7 @@ TraderGrader bridges the gap between AI assistants and EVE Online's complex mark
 ### One-Liner Installation
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/fuuijin/tradergrader/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/fuuijin/tradergrader/main/scripts/install.sh | bash
 ```
 
 This automatically:
@@ -32,7 +32,7 @@ This automatically:
 git clone https://github.com/fuuijin/tradergrader.git
 cd tradergrader
 cargo build --release
-./install_mcp.sh  # Configure for Claude Desktop
+./scripts/install_mcp.sh  # Configure for Claude Desktop
 ```
 
 ## 🛠️ Available Tools
