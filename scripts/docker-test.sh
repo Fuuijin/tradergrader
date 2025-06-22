@@ -81,8 +81,20 @@ LIFECYCLE_CONTAINER="tradergrader-test-lifecycle"
 # Start container in background
 docker run -d --name "$LIFECYCLE_CONTAINER" "$IMAGE" >/dev/null
 
-# Wait for container to be ready
-sleep 2
+# Wait for container to be ready with active polling
+echo "⏳ Waiting for container to be ready..."
+for i in {1..30}; do
+    if docker logs "$LIFECYCLE_CONTAINER" 2>&1 | grep -q "TraderGrader MCP Server starting"; then
+        echo "✅ Container is ready"
+        break
+    fi
+    sleep 1
+    if [ "$i" -eq 30 ]; then
+        echo "❌ Container failed to become ready within timeout"
+        docker rm -f "$LIFECYCLE_CONTAINER" >/dev/null 2>&1 || true
+        exit 1
+    fi
+done
 
 # Check if container started (it may exit quickly for MCP servers without input)
 if docker ps -aq -f name="$LIFECYCLE_CONTAINER" | grep -q .; then
