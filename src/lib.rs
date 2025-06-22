@@ -26,7 +26,7 @@ pub mod rate_limit;
 // Re-export commonly used types
 pub use error::{TraderGraderError, Result};
 pub use types::{MarketOrder, MarketHistory, MarketType, PriceAnalysis};
-pub use market::MarketClient;
+pub use market::{MarketClient, ClientConfig};
 pub use mcp::McpHandler;
 pub use server::StandaloneMcpServer;
 pub use cache::{CacheKey, CacheItem, CacheBackend, CacheBackendExt, CacheConfig, CacheBackendType, CacheStats, EsiHeaderParser, InMemoryCacheBackend};

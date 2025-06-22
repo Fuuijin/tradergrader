@@ -5,6 +5,74 @@ use crate::types::{MarketHistory, MarketOrder, PriceAnalysis};
 use reqwest::Client;
 use std::sync::Arc;
 
+/// Configuration for ESI-compliant client headers
+#[derive(Debug, Clone)]
+pub struct ClientConfig {
+    /// Application name and version
+    pub app_name: String,
+    /// Contact information (email, character name, etc.)
+    pub contact: String,
+    /// Optional GitHub/repository URL  
+    pub repository: Option<String>,
+}
+
+impl Default for ClientConfig {
+    fn default() -> Self {
+        Self {
+            app_name: "TraderGrader/0.1.0".to_string(),
+            contact: "contact-required@example.com".to_string(),
+            repository: Some("https://github.com/fuuijin/tradergrader".to_string()),
+        }
+    }
+}
+
+impl ClientConfig {
+    /// Create a new client configuration with required contact info
+    /// 
+    /// # Arguments
+    /// 
+    /// * `app_name` - Your application name and version (e.g., "MyApp/1.0")
+    /// * `contact` - Contact information (email, EVE character name, etc.)
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use tradergrader::ClientConfig;
+    /// 
+    /// let config = ClientConfig::new(
+    ///     "MyTradingApp/1.0".to_string(),
+    ///     "pilot@example.com".to_string()
+    /// );
+    /// ```
+    pub fn new(app_name: String, contact: String) -> Self {
+        Self {
+            app_name,
+            contact,
+            repository: None,
+        }
+    }
+
+    /// Add repository URL for additional attribution
+    pub fn with_repository(mut self, repository: String) -> Self {
+        self.repository = Some(repository);
+        self
+    }
+
+    /// Generate ESI-compliant User-Agent header
+    /// 
+    /// Format: "AppName (contact; repository)"
+    /// Complies with ESI guidelines requiring contact information
+    fn generate_user_agent(&self) -> String {
+        let mut ua = format!("{} ({})", self.app_name, self.contact);
+        
+        if let Some(ref repo) = self.repository {
+            ua = format!("{} ({}; {})", self.app_name, self.contact, repo);
+        }
+        
+        ua
+    }
+}
+
 /// Market data client for EVE Online ESI API
 /// 
 /// Provides methods to fetch real-time market data, historical price information,
@@ -14,33 +82,111 @@ pub struct MarketClient {
     http_client: Client,
     cache: Option<Arc<dyn CacheBackend>>,
     rate_limiter: EsiRateLimiter,
+    client_config: ClientConfig,
 }
 
 impl MarketClient {
     /// Creates a new MarketClient with default HTTP client configuration
     /// 
-    /// The client is configured with a proper user agent string for EVE ESI API compliance.
+    /// **IMPORTANT**: The default configuration uses a placeholder contact email.
+    /// For production use, you MUST provide your own contact information using
+    /// `with_client_config()` to comply with ESI guidelines.
     /// 
     /// # Examples
     /// 
     /// ```
     /// use tradergrader::MarketClient;
-    /// let client = MarketClient::new();
+    /// let client = MarketClient::new(); // Only for testing/development
     /// ```
     pub fn new() -> Self {
-        Self::with_configs(CacheConfig::default(), RateLimitConfig::default())
-            .expect("Failed to create MarketClient with default configs")
+        Self::with_all_configs(
+            ClientConfig::default(),
+            CacheConfig::default(), 
+            RateLimitConfig::default()
+        ).expect("Failed to create MarketClient with default configs")
+    }
+
+    /// Creates a new MarketClient with ESI-compliant contact information
+    /// 
+    /// This is the recommended way to create a MarketClient for production use.
+    /// Ensures compliance with ESI guidelines requiring contact information.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `client_config` - Contact information and app identification
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use tradergrader::{MarketClient, ClientConfig};
+    /// 
+    /// let config = ClientConfig::new(
+    ///     "MyTradingApp/1.0".to_string(),
+    ///     "pilot@example.com".to_string()
+    /// );
+    /// let client = MarketClient::with_client_config(config)?;
+    /// # Ok::<(), tradergrader::TraderGraderError>(())
+    /// ```
+    pub fn with_client_config(client_config: ClientConfig) -> Result<Self> {
+        Self::with_all_configs(client_config, CacheConfig::default(), RateLimitConfig::default())
     }
 
     /// Creates a new MarketClient with cache configuration
+    /// 
+    /// **IMPORTANT**: Uses default contact configuration with placeholder email.
+    /// For production use, prefer `with_all_configs()` with proper contact information.
     pub fn with_cache_config(config: CacheConfig) -> Result<Self> {
         Self::with_configs(config, RateLimitConfig::default())
     }
 
+    /// Creates a new MarketClient with all configurations
+    /// 
+    /// Provides full control over client identification, caching, and rate limiting.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `client_config` - Client identification and contact information for ESI compliance
+    /// * `cache_config` - Configuration for cache backend (enabled/disabled, capacity, TTL)
+    /// * `rate_limit_config` - Configuration for ESI rate limiting (requests/sec, retries, backoff)
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use tradergrader::{MarketClient, ClientConfig, CacheConfig, RateLimitConfig};
+    /// use std::time::Duration;
+    /// 
+    /// let client_config = ClientConfig::new(
+    ///     "MyTradingApp/1.0".to_string(),
+    ///     "pilot@example.com".to_string()
+    /// );
+    /// let cache_config = CacheConfig::in_memory(1000, Duration::from_secs(3600));
+    /// let rate_config = RateLimitConfig::conservative();
+    /// let client = MarketClient::with_all_configs(client_config, cache_config, rate_config)?;
+    /// # Ok::<(), tradergrader::TraderGraderError>(())
+    /// ```
+    pub fn with_all_configs(
+        client_config: ClientConfig,
+        cache_config: CacheConfig, 
+        rate_limit_config: RateLimitConfig
+    ) -> Result<Self> {
+        let cache = cache_config.create_backend()?;
+        let rate_limiter = EsiRateLimiter::new(rate_limit_config)?;
+        
+        Ok(Self {
+            http_client: Client::builder()
+                .user_agent(&client_config.generate_user_agent())
+                .build()
+                .expect("Failed to create HTTP client"),
+            cache,
+            rate_limiter,
+            client_config,
+        })
+    }
+
     /// Creates a new MarketClient with both cache and rate limit configuration
     /// 
-    /// Provides full control over both caching and rate limiting behavior.
-    /// Use this for production deployments where you need specific configurations.
+    /// **IMPORTANT**: Uses default contact configuration with placeholder email.
+    /// For production use, prefer `with_all_configs()` with proper contact information.
     /// 
     /// # Arguments
     /// 
@@ -59,20 +205,13 @@ impl MarketClient {
     /// # Ok::<(), tradergrader::TraderGraderError>(())
     /// ```
     pub fn with_configs(cache_config: CacheConfig, rate_limit_config: RateLimitConfig) -> Result<Self> {
-        let cache = cache_config.create_backend()?;
-        let rate_limiter = EsiRateLimiter::new(rate_limit_config)?;
-        
-        Ok(Self {
-            http_client: Client::builder()
-                .user_agent("TraderGrader/0.1.0 (https://github.com/fuuijin/tradergrader)")
-                .build()
-                .expect("Failed to create HTTP client"),
-            cache,
-            rate_limiter,
-        })
+        Self::with_all_configs(ClientConfig::default(), cache_config, rate_limit_config)
     }
 
     /// Creates a new MarketClient with custom cache backend
+    /// 
+    /// **IMPORTANT**: Uses default contact configuration with placeholder email.
+    /// For production use, prefer `with_all_configs()` with proper contact information.
     /// 
     /// Use this when you want to provide your own cache implementation
     /// or share a cache instance between multiple clients.
@@ -91,25 +230,34 @@ impl MarketClient {
     /// let client = MarketClient::with_cache(cache);
     /// ```
     pub fn with_cache(cache: Arc<dyn CacheBackend>) -> Self {
+        let client_config = ClientConfig::default();
+        
         Self {
             http_client: Client::builder()
-                .user_agent("TraderGrader/0.1.0 (https://github.com/fuuijin/tradergrader)")
+                .user_agent(&client_config.generate_user_agent())
                 .build()
                 .expect("Failed to create HTTP client"),
             cache: Some(cache),
             rate_limiter: EsiRateLimiter::default().expect("Failed to create rate limiter"),
+            client_config,
         }
     }
 
     /// Creates a new MarketClient without caching
+    /// 
+    /// **IMPORTANT**: Uses default contact configuration with placeholder email.
+    /// For production use, prefer `with_all_configs()` with proper contact information.
     pub fn without_cache() -> Self {
+        let client_config = ClientConfig::default();
+        
         Self {
             http_client: Client::builder()
-                .user_agent("TraderGrader/0.1.0 (https://github.com/fuuijin/tradergrader)")
+                .user_agent(&client_config.generate_user_agent())
                 .build()
                 .expect("Failed to create HTTP client"),
             cache: None,
             rate_limiter: EsiRateLimiter::default().expect("Failed to create rate limiter"),
+            client_config,
         }
     }
 
@@ -665,6 +813,50 @@ mod tests {
         let default_client = MarketClient::new();
         assert!(default_client.has_cache());
         assert_eq!(default_client.rate_limiter.config().requests_per_second, 100); // Default ESI limit
+    }
+
+    #[test]
+    fn test_client_config_user_agent_generation() {
+        // Test default configuration User-Agent
+        let default_config = ClientConfig::default();
+        let default_ua = default_config.generate_user_agent();
+        assert!(default_ua.contains("TraderGrader/0.1.0"));
+        assert!(default_ua.contains("contact-required@example.com"));
+        assert!(default_ua.contains("https://github.com/fuuijin/tradergrader"));
+        
+        // Test custom configuration without repository
+        let custom_config = ClientConfig::new(
+            "MyApp/2.0".to_string(),
+            "pilot@example.com".to_string()
+        );
+        let custom_ua = custom_config.generate_user_agent();
+        assert_eq!(custom_ua, "MyApp/2.0 (pilot@example.com)");
+        
+        // Test custom configuration with repository
+        let custom_config_with_repo = ClientConfig::new(
+            "MyApp/2.0".to_string(),
+            "pilot@example.com".to_string()
+        ).with_repository("https://github.com/user/myapp".to_string());
+        let custom_ua_with_repo = custom_config_with_repo.generate_user_agent();
+        assert_eq!(custom_ua_with_repo, "MyApp/2.0 (pilot@example.com; https://github.com/user/myapp)");
+    }
+
+    #[test]
+    fn test_esi_compliant_client_creation() {
+        // Test creating client with proper ESI contact information
+        let client_config = ClientConfig::new(
+            "TestApp/1.0".to_string(),
+            "test-pilot@example.com".to_string()
+        );
+        
+        let client = MarketClient::with_client_config(client_config)
+            .expect("Should create client with ESI-compliant config");
+        
+        assert!(client.has_cache());
+        
+        // Test that client_config is stored (even if not exposed yet)
+        assert_eq!(client.client_config.app_name, "TestApp/1.0");
+        assert_eq!(client.client_config.contact, "test-pilot@example.com");
     }
 }
 
