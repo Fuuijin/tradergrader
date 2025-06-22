@@ -1,0 +1,57 @@
+# Docker ignore file for TraderGrader
+# Reduces build context and improves build performance
+
+# Git
+.git/
+.gitignore
+
+# Rust build artifacts
+target/
+**/*.rs.bk
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Development files
+.env
+.env.*
+CLAUDE.md
+CLAUDE.local.md
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test files
+test_*.json
+test_*.py
+
+# Cache directories
+.cache/
+node_modules/
+
+# Coverage reports
+coverage/
+*.lcov
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Docker files (avoid recursive Docker builds)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
