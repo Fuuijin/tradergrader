@@ -64,3 +64,43 @@ impl TraderGraderError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_conversions() {
+        let error = TraderGraderError::InvalidRegionId { region_id: 999 };
+        assert_eq!(error.to_rpc_code(), -32602);
+        assert_eq!(error.to_string(), "Invalid region ID: 999");
+
+        let error2 = TraderGraderError::from("Test error");
+        assert_eq!(error2.to_rpc_code(), -32603);
+    }
+
+    #[test]
+    fn test_string_conversion() {
+        let error = TraderGraderError::from("Custom error message".to_string());
+        assert!(error.to_string().contains("Custom error message"));
+        
+        let error2 = TraderGraderError::from("String slice error");
+        assert!(error2.to_string().contains("String slice error"));
+    }
+
+    #[test]
+    fn test_esi_api_error() {
+        let error = TraderGraderError::EsiApiError {
+            message: "Service unavailable".to_string(),
+        };
+        assert_eq!(error.to_rpc_code(), -32603);
+        assert!(error.to_string().contains("EVE ESI API error"));
+    }
+
+    #[test] 
+    fn test_rate_limit_error() {
+        let error = TraderGraderError::RateLimitError("Too many requests".to_string());
+        assert_eq!(error.to_rpc_code(), -32000);
+        assert!(error.to_string().contains("Rate limit exceeded"));
+    }
+}

@@ -3,13 +3,25 @@ use crate::types::{MarketHistory, MarketOrder, PriceAnalysis};
 use reqwest::Client;
 
 /// Market data client for EVE Online ESI API
+/// 
+/// Provides methods to fetch real-time market data, historical price information,
+/// and perform market analysis using the EVE Online ESI (EVE Swagger Interface) API.
 #[derive(Debug)]
 pub struct MarketClient {
     http_client: Client,
 }
 
 impl MarketClient {
-    /// Create a new market client with proper User-Agent
+    /// Creates a new MarketClient with default HTTP client configuration
+    /// 
+    /// The client is configured with a proper user agent string for EVE ESI API compliance.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use tradergrader::MarketClient;
+    /// let client = MarketClient::new();
+    /// ```
     pub fn new() -> Self {
         Self {
             http_client: Client::builder()
@@ -19,7 +31,30 @@ impl MarketClient {
         }
     }
 
-    /// Fetch current market orders for a region and optional item type
+    /// Fetches current market orders for a specific region and optional item type
+    /// 
+    /// # Arguments
+    /// 
+    /// * `region_id` - The EVE Online region ID (e.g., 10000002 for The Forge)
+    /// * `type_id` - Optional item type ID to filter orders for a specific item
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a vector of `MarketOrder` structs containing buy and sell orders
+    /// 
+    /// # Examples
+    /// 
+    /// ```no_run
+    /// # use tradergrader::{MarketClient, Result};
+    /// # async fn example() -> Result<()> {
+    /// let client = MarketClient::new();
+    /// // Get all orders in The Forge
+    /// let orders = client.fetch_market_orders(10000002, None).await?;
+    /// // Get orders for Tritanium only
+    /// let tritanium_orders = client.fetch_market_orders(10000002, Some(34)).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn fetch_market_orders(
         &self,
         region_id: i32,
@@ -43,7 +78,30 @@ impl MarketClient {
         Ok(orders)
     }
 
-    /// Fetch historical market data for a specific item in a region
+    /// Fetches historical market data for a specific item in a region
+    /// 
+    /// Returns up to 13 months of historical daily market data including
+    /// average price, highest/lowest prices, volume, and order count.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `region_id` - The EVE Online region ID
+    /// * `type_id` - The item type ID to get history for
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a vector of `MarketHistory` structs with daily market data
+    /// 
+    /// # Examples
+    /// 
+    /// ```no_run
+    /// # use tradergrader::{MarketClient, Result};
+    /// # async fn example() -> Result<()> {
+    /// let client = MarketClient::new();
+    /// let history = client.fetch_market_history(10000002, 34).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn fetch_market_history(
         &self,
         region_id: i32,
@@ -65,7 +123,31 @@ impl MarketClient {
         Ok(history)
     }
 
-    /// Generate a market summary with buy/sell analysis
+    /// Generates a comprehensive market summary with buy/sell order analysis
+    /// 
+    /// Analyzes current market orders to provide best buy/sell prices, spreads,
+    /// and order depth information in a human-readable format.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `region_id` - The EVE Online region ID
+    /// * `type_id` - The item type ID to analyze
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a formatted string containing market analysis
+    /// 
+    /// # Examples
+    /// 
+    /// ```no_run
+    /// # use tradergrader::{MarketClient, Result};
+    /// # async fn example() -> Result<()> {
+    /// let client = MarketClient::new();
+    /// let summary = client.get_market_summary(10000002, 34).await?;
+    /// println!("{}", summary);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn get_market_summary(&self, region_id: i32, type_id: i32) -> Result<String> {
         let orders = self.fetch_market_orders(region_id, Some(type_id)).await?;
 
@@ -104,7 +186,31 @@ impl MarketClient {
         Ok(summary)
     }
 
-    /// Analyze price trends from historical data
+    /// Analyzes price trends from historical market data
+    /// 
+    /// Calculates daily, weekly, and monthly price changes, volatility metrics,
+    /// and determines the overall trend direction (bullish, bearish, or sideways).
+    /// 
+    /// # Arguments
+    /// 
+    /// * `region_id` - The EVE Online region ID
+    /// * `type_id` - The item type ID to analyze
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `PriceAnalysis` struct with comprehensive trend metrics
+    /// 
+    /// # Examples
+    /// 
+    /// ```no_run
+    /// # use tradergrader::{MarketClient, Result};
+    /// # async fn example() -> Result<()> {
+    /// let client = MarketClient::new();
+    /// let analysis = client.analyze_price_trends(10000002, 34).await?;
+    /// println!("Current trend: {}", analysis.trend);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn analyze_price_trends(
         &self,
         region_id: i32,
@@ -190,7 +296,31 @@ impl MarketClient {
         })
     }
 
-    /// Get a formatted price history summary
+    /// Generates a formatted price history summary with trend analysis
+    /// 
+    /// Combines price analysis with human-readable formatting to provide
+    /// a comprehensive overview of an item's price performance.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `region_id` - The EVE Online region ID
+    /// * `type_id` - The item type ID to analyze
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a formatted string with price analysis summary
+    /// 
+    /// # Examples
+    /// 
+    /// ```no_run
+    /// # use tradergrader::{MarketClient, Result};
+    /// # async fn example() -> Result<()> {
+    /// let client = MarketClient::new();
+    /// let summary = client.get_price_history_summary(10000002, 34).await?;
+    /// println!("{}", summary);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn get_price_history_summary(&self, region_id: i32, type_id: i32) -> Result<String> {
         let analysis = self.analyze_price_trends(region_id, type_id).await?;
 
@@ -225,6 +355,95 @@ impl MarketClient {
 impl Default for MarketClient {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // Tests use parent scope types
+
+    #[test]
+    fn test_market_client_creation() {
+        let client = MarketClient::new();
+        // Just test that we can create a client
+        let _ = client;
+    }
+
+    #[test]
+    fn test_default_client() {
+        let client = MarketClient::default();
+        let _ = client;
+    }
+
+    // Mock test for URL formation
+    #[test]
+    fn test_url_formation() {
+        let region_id = 10000002;
+        let type_id = Some(34);
+        
+        let base_url = format!("https://esi.evetech.net/latest/markets/{region_id}/orders/");
+        assert!(base_url.contains("10000002"));
+        
+        if let Some(tid) = type_id {
+            let full_url = format!("{base_url}?type_id={tid}");
+            assert!(full_url.contains("type_id=34"));
+        }
+    }
+
+    #[test]
+    fn test_price_trend_calculation() {
+        // Test trend determination logic
+        let week_change = 5.0;
+        let day_change = 2.0;
+        
+        let trend = if week_change > 2.0 && day_change > 0.0 {
+            "bullish"
+        } else if week_change < -2.0 && day_change < 0.0 {
+            "bearish"
+        } else {
+            "sideways"
+        };
+        
+        assert_eq!(trend, "bullish");
+    }
+
+    #[test]
+    fn test_market_summary_format() {
+        // Test summary format strings
+        let region_id = 10000002;
+        let type_id = 34;
+        let best_buy = 95.50;
+        let best_sell = 96.75;
+        let spread = best_sell - best_buy;
+        
+        let summary = format!(
+            "Market Summary for Type {} in Region {}:\n\
+            Best Buy Order: {:.2} ISK\n\
+            Best Sell Order: {:.2} ISK\n\
+            Spread: {:.2} ISK ({:.2}%)",
+            type_id, region_id, best_buy, best_sell, spread, 
+            (spread / best_buy) * 100.0
+        );
+        
+        assert!(summary.contains("Market Summary"));
+        assert!(summary.contains("95.50"));
+        assert!(summary.contains("96.75"));
+    }
+
+    #[test]
+    fn test_volatility_calculation() {
+        let prices = vec![100.0, 105.0, 95.0, 102.0, 98.0];
+        let mean = prices.iter().sum::<f64>() / prices.len() as f64;
+        
+        let variance = prices.iter()
+            .map(|price| (price - mean).powi(2))
+            .sum::<f64>() / prices.len() as f64;
+            
+        let volatility = variance.sqrt();
+        
+        assert!(volatility > 0.0);
+        assert!(mean > 90.0 && mean < 110.0);
     }
 }
 

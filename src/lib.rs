@@ -1,7 +1,7 @@
 //! TraderGrader - EVE Online Market Data MCP Server
 //! 
-//! A production-ready MCP server that provides AI tools with comprehensive access
-//! to EVE Online market data, historical trends, and trading analysis.
+//! An experimental MCP server that provides AI tools with access to EVE Online 
+//! market data, historical trends, and trading analysis via the ESI API.
 //!
 //! # Features
 //! 
