@@ -38,6 +38,26 @@ impl MarketClient {
     }
 
     /// Creates a new MarketClient with both cache and rate limit configuration
+    /// 
+    /// Provides full control over both caching and rate limiting behavior.
+    /// Use this for production deployments where you need specific configurations.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `cache_config` - Configuration for cache backend (enabled/disabled, capacity, TTL)
+    /// * `rate_limit_config` - Configuration for ESI rate limiting (requests/sec, retries, backoff)
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use tradergrader::{MarketClient, CacheConfig, RateLimitConfig};
+    /// use std::time::Duration;
+    /// 
+    /// let cache_config = CacheConfig::in_memory(1000, Duration::from_secs(3600));
+    /// let rate_config = RateLimitConfig::conservative();
+    /// let client = MarketClient::with_configs(cache_config, rate_config)?;
+    /// # Ok::<(), tradergrader::TraderGraderError>(())
+    /// ```
     pub fn with_configs(cache_config: CacheConfig, rate_limit_config: RateLimitConfig) -> Result<Self> {
         let cache = cache_config.create_backend()?;
         let rate_limiter = EsiRateLimiter::new(rate_limit_config)?;
@@ -53,6 +73,23 @@ impl MarketClient {
     }
 
     /// Creates a new MarketClient with custom cache backend
+    /// 
+    /// Use this when you want to provide your own cache implementation
+    /// or share a cache instance between multiple clients.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `cache` - Arc-wrapped cache backend implementing CacheBackend trait
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use std::sync::Arc;
+    /// use tradergrader::{MarketClient, InMemoryCacheBackend};
+    /// 
+    /// let cache = Arc::new(InMemoryCacheBackend::default());
+    /// let client = MarketClient::with_cache(cache);
+    /// ```
     pub fn with_cache(cache: Arc<dyn CacheBackend>) -> Self {
         Self {
             http_client: Client::builder()
@@ -591,22 +628,22 @@ mod tests {
 
         // Test default configuration
         let client = MarketClient::new();
-        assert!(client.cache.is_some());
+        assert!(client.has_cache());
 
         // Test disabled cache
         let client_no_cache = MarketClient::with_cache_config(CacheConfig::disabled())
             .expect("Should create client without cache");
-        assert!(client_no_cache.cache.is_none());
+        assert!(!client_no_cache.has_cache());
 
         // Test custom in-memory cache
         let client_custom = MarketClient::with_cache_config(
             CacheConfig::in_memory(500, Duration::from_secs(1800))
         ).expect("Should create client with custom cache");
-        assert!(client_custom.cache.is_some());
+        assert!(client_custom.has_cache());
 
         // Test without_cache method
         let client_without = MarketClient::without_cache();
-        assert!(client_without.cache.is_none());
+        assert!(!client_without.has_cache());
     }
 
     #[test]

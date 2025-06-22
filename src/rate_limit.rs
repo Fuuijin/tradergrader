@@ -117,7 +117,7 @@ impl EsiRateLimiter {
 
     /// Calculate delay for exponential backoff
     pub fn calculate_backoff_delay(&self, attempt: u32) -> Duration {
-        let delay_ms = self.config.base_delay_ms * 2_u64.pow(attempt);
+        let delay_ms = self.config.base_delay_ms.saturating_mul(2_u64.saturating_pow(attempt));
         let max_delay_ms = self.config.max_delay_seconds * 1000;
         
         Duration::from_millis(delay_ms.min(max_delay_ms))
@@ -310,5 +310,23 @@ mod tests {
         let config = RateLimitConfig::testing();
         assert_eq!(config.requests_per_second, 1000);
         assert_eq!(config.max_retries, 1);
+    }
+
+    #[test]
+    fn test_backoff_delay_overflow_protection() {
+        let config = RateLimitConfig {
+            base_delay_ms: 1000,
+            max_delay_seconds: 5,
+            ..RateLimitConfig::default()
+        };
+        let limiter = EsiRateLimiter::new(config).expect("Should create rate limiter");
+        
+        // Test with very high attempt count that would overflow without saturating_pow
+        let large_attempt = 100;
+        let delay = limiter.calculate_backoff_delay(large_attempt);
+        
+        // Should not panic and should be capped at max_delay
+        assert!(delay <= Duration::from_secs(5));
+        assert!(delay >= Duration::from_millis(1000)); // At least base delay
     }
 }
