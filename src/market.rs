@@ -1,5 +1,6 @@
 use crate::cache::{CacheBackend, CacheBackendExt, CacheConfig, CacheKey, EsiHeaderParser};
 use crate::error::Result;
+use crate::rate_limit::{EsiRateLimiter, RateLimitConfig};
 use crate::types::{MarketHistory, MarketOrder, PriceAnalysis};
 use reqwest::Client;
 use std::sync::Arc;
@@ -12,6 +13,7 @@ use std::sync::Arc;
 pub struct MarketClient {
     http_client: Client,
     cache: Option<Arc<dyn CacheBackend>>,
+    rate_limiter: EsiRateLimiter,
 }
 
 impl MarketClient {
@@ -26,19 +28,27 @@ impl MarketClient {
     /// let client = MarketClient::new();
     /// ```
     pub fn new() -> Self {
-        Self::with_cache_config(CacheConfig::default())
-            .expect("Failed to create MarketClient with default cache")
+        Self::with_configs(CacheConfig::default(), RateLimitConfig::default())
+            .expect("Failed to create MarketClient with default configs")
     }
 
     /// Creates a new MarketClient with cache configuration
     pub fn with_cache_config(config: CacheConfig) -> Result<Self> {
-        let cache = config.create_backend()?;
+        Self::with_configs(config, RateLimitConfig::default())
+    }
+
+    /// Creates a new MarketClient with both cache and rate limit configuration
+    pub fn with_configs(cache_config: CacheConfig, rate_limit_config: RateLimitConfig) -> Result<Self> {
+        let cache = cache_config.create_backend()?;
+        let rate_limiter = EsiRateLimiter::new(rate_limit_config)?;
+        
         Ok(Self {
             http_client: Client::builder()
                 .user_agent("TraderGrader/0.1.0 (https://github.com/fuuijin/tradergrader)")
                 .build()
                 .expect("Failed to create HTTP client"),
             cache,
+            rate_limiter,
         })
     }
 
@@ -50,6 +60,7 @@ impl MarketClient {
                 .build()
                 .expect("Failed to create HTTP client"),
             cache: Some(cache),
+            rate_limiter: EsiRateLimiter::default().expect("Failed to create rate limiter"),
         }
     }
 
@@ -61,6 +72,7 @@ impl MarketClient {
                 .build()
                 .expect("Failed to create HTTP client"),
             cache: None,
+            rate_limiter: EsiRateLimiter::default().expect("Failed to create rate limiter"),
         }
     }
 
@@ -107,14 +119,16 @@ impl MarketClient {
             }
         }
 
-        // Not in cache, fetch from ESI
+        // Not in cache, fetch from ESI with rate limiting
         let mut url = format!("https://esi.evetech.net/latest/markets/{region_id}/orders/");
 
         if let Some(tid) = type_id {
             url = format!("{url}?type_id={tid}");
         }
 
-        let response = self.http_client.get(&url).send().await?;
+        let response = self.rate_limiter.execute_with_retry(|| async {
+            Ok(self.http_client.get(&url).send().await?)
+        }).await?;
 
         if !response.status().is_success() {
             return Err(
@@ -177,12 +191,14 @@ impl MarketClient {
             }
         }
 
-        // Not in cache, fetch from ESI
+        // Not in cache, fetch from ESI with rate limiting
         let url = format!(
             "https://esi.evetech.net/latest/markets/{region_id}/history/?type_id={type_id}"
         );
 
-        let response = self.http_client.get(&url).send().await?;
+        let response = self.rate_limiter.execute_with_retry(|| async {
+            Ok(self.http_client.get(&url).send().await?)
+        }).await?;
 
         if !response.status().is_success() {
             return Err(
@@ -591,6 +607,27 @@ mod tests {
         // Test without_cache method
         let client_without = MarketClient::without_cache();
         assert!(client_without.cache.is_none());
+    }
+
+    #[test]
+    fn test_market_client_rate_limit_configurations() {
+        use crate::cache::CacheConfig;
+        use crate::rate_limit::RateLimitConfig;
+
+        // Test with both custom cache and rate limit configs
+        let cache_config = CacheConfig::in_memory(100, std::time::Duration::from_secs(600));
+        let rate_limit_config = RateLimitConfig::conservative();
+        
+        let client = MarketClient::with_configs(cache_config, rate_limit_config)
+            .expect("Should create client with custom configs");
+        
+        assert!(client.has_cache());
+        assert_eq!(client.rate_limiter.config().requests_per_second, 50); // Conservative setting
+        
+        // Test default configurations
+        let default_client = MarketClient::new();
+        assert!(default_client.has_cache());
+        assert_eq!(default_client.rate_limiter.config().requests_per_second, 100); // Default ESI limit
     }
 }
 

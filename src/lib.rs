@@ -21,6 +21,7 @@ pub mod market;
 pub mod mcp;
 pub mod server;
 pub mod cache;
+pub mod rate_limit;
 
 // Re-export commonly used types
 pub use error::{TraderGraderError, Result};
@@ -29,6 +30,7 @@ pub use market::MarketClient;
 pub use mcp::McpHandler;
 pub use server::StandaloneMcpServer;
 pub use cache::{CacheKey, CacheItem, CacheBackend, CacheBackendExt, CacheConfig, CacheBackendType, CacheStats, EsiHeaderParser, InMemoryCacheBackend};
+pub use rate_limit::{EsiRateLimiter, RateLimitConfig, EsiRateLimitInfo};
 
 /// Main TraderGrader application
 #[derive(Debug)]
